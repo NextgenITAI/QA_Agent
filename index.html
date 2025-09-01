@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>⚡ NextGenIT QA Agent (Prototype)</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+      background: #f9f9f9;
+    }
+    h2 {
+      color: #333;
+    }
+    select, textarea, button {
+      margin-top: 10px;
+      padding: 8px;
+      font-size: 14px;
+    }
+    textarea {
+      width: 100%;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+      padding: 10px;
+      font-family: monospace;
+      resize: none;
+    }
+    #code {
+      height: 200px; /* Code editor */
+    }
+    #syntax, #llm {
+      height: 150px;        /* bigger area (≈ 7–8 lines) */
+      background: #fff;
+      overflow-y: auto;     /* scroll if text overflows */
+      white-space: pre-wrap;
+      font-family: monospace;
+      font-size: 14px;
+    }
+    .section {
+      margin-top: 20px;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      background: #fff;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    }
+    button {
+      cursor: pointer;
+      background: #007bff;
+      color: white;
+      border: none;
+      border-radius: 6px;
+    }
+    button:hover {
+      background: #0056b3;
+    }
+    #downloadBtn {
+      margin-top: 20px;
+      background: #28a745;
+    }
+    #downloadBtn:hover {
+      background: #1e7e34;
+    }
+  </style>
+</head>
+<body>
+  <h2>⚡ NextGenIT QA Agent (Prototype)</h2>
+
+  <label for="lang">Language:</label>
+  <select id="lang">
+    <option>Python</option>
+    <option>JavaScript</option>
+    <option>Java</option>
+  </select>
+  <br>
+
+  <textarea id="code" placeholder="Paste your code here..."></textarea>
+  <br>
+  <button onclick="runQA()">Run QA</button>
+
+  <div class="section">
+    <h3>📝 Syntax Check</h3>
+    <textarea id="syntax" readonly></textarea>
+  </div>
+
+  <div class="section">
+    <h3>🤖 LLM Review</h3>
+    <textarea id="llm" readonly></textarea>
+  </div>
+
+  <div class="section">
+  <h3>⏱ Timing</h3>
+  <input id="timing" type="text" readonly style="width:100%; border-radius:6px; border:1px solid #ccc; padding:6px; font-family:monospace;" />
+</div>
+
+
+  <button id="downloadBtn" onclick="downloadReport()">⬇️ Download QA Report</button>
+
+  <script>
+    async function runQA() {
+      const lang = document.getElementById("lang").value;
+      const code = document.getElementById("code").value;
+
+      document.getElementById("syntax").value = "Checking...";
+      document.getElementById("llm").value = "Reviewing...";
+      document.getElementById("timing").value = "";
+
+      const start = performance.now();
+      try {
+        #const res = await fetch("http://127.0.0.1:8080/qa",
+		const res = await fetch("https://276f613e8678.ngrok-free.app/qa", {
+{
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ language: lang, code: code })
+        });
+
+        const data = await res.json();
+        console.log("QA API Response:", data); // 🔍 Debugging line
+
+        // ✅ Syntax Check Formatting
+        // ✅ Syntax Check Formatting
+		if (data.syntax_check || data.syntax) {
+		  const syntaxData = data.syntax_check || data.syntax;
+
+		  if (Array.isArray(syntaxData.errors)) {
+			// errors is an array → join into lines
+			document.getElementById("syntax").value = syntaxData.errors.join("\n");
+		  } else if (typeof syntaxData.errors === "string") {
+			// errors is a single string
+			document.getElementById("syntax").value = syntaxData.errors;
+		  } else if (typeof syntaxData === "object") {
+			// whole object → pretty print
+			document.getElementById("syntax").value = JSON.stringify(syntaxData, null, 2);
+		  } else {
+			// already a string
+			document.getElementById("syntax").value = syntaxData;
+		  }
+		} else {
+		  document.getElementById("syntax").value = "No syntax result";
+		}
+
+
+        // ✅ LLM Review Formatting
+        if (data.llm_review) {
+          if (typeof data.llm_review === "object") {
+            document.getElementById("llm").value =
+              data.llm_review.message
+                ? data.llm_review.message
+                : JSON.stringify(data.llm_review, null, 2);
+          } else {
+            document.getElementById("llm").value = data.llm_review;
+          }
+        } else {
+          document.getElementById("llm").value = "⚠️ No review available";
+        }
+
+        document.getElementById("timing").value =
+          `Processed in ${data.elapsed_time || "?"}s`;
+
+      } catch (err) {
+        document.getElementById("syntax").value = "❌ Error calling API";
+        document.getElementById("llm").value = "";
+        document.getElementById("timing").value = "";
+        console.error("QA API Error:", err);
+      }
+    }
+
+    function downloadReport() {
+      const lang = document.getElementById("lang").value;
+      const code = document.getElementById("code").value;
+      const syntax = document.getElementById("syntax").value;
+      const llm = document.getElementById("llm").value;
+      const timing = document.getElementById("timing").value;
+
+      const report = `
+⚡ NextGenIT QA Report
+=====================
+
+Language: ${lang}
+
+👨‍💻 Submitted Code:
+-------------------
+${code}
+
+📝 Syntax Check:
+----------------
+${syntax}
+
+🤖 LLM Review:
+--------------
+${llm}
+
+⏱ Timing:
+---------
+${timing}
+      `;
+
+      const blob = new Blob([report], { type: "text/plain" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = "QA_Report.txt";
+      link.click();
+    }
+  </script>
+</body>
+</html>
