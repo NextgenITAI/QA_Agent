@@ -139,22 +139,25 @@
         // ✅ Fix: interpret syntax result properly
         if (data.syntax_check || data.syntax) {
           const syntaxData = data.syntax_check || data.syntax;
-
-          if (syntaxData.errors && Array.isArray(syntaxData.errors)) {
-            document.getElementById("syntax").value = syntaxData.errors.join("\n");
-          } else if (typeof syntaxData.errors === "string") {
-            document.getElementById("syntax").value = syntaxData.errors;
+        
+          let syntaxMsg = "✅ No syntax errors";
+        
+          if (syntaxData.errors) {
+            syntaxMsg = syntaxData.errors;
           } else if (syntaxData.ok === false) {
-            document.getElementById("syntax").value = "❌ Syntax errors detected";
-          } else if (!syntaxData.errors && code.includes("(") && !code.includes(")")) {
-            // crude fallback for cases like print(Hello)
-            document.getElementById("syntax").value = "❌ Likely missing quotes or parenthesis error";
-          } else {
-            document.getElementById("syntax").value = "✅ No syntax errors";
+            syntaxMsg = "❌ Syntax errors detected (no details)";
           }
+        
+          // Optional .NET hint
+          if (lang === ".NET" && code.includes("print(")) {
+            syntaxMsg = "❌ Looks like Python code; use Console.WriteLine(...) in C#";
+          }
+        
+          document.getElementById("syntax").value = syntaxMsg;
         } else {
           document.getElementById("syntax").value = "No syntax result";
         }
+
 
         // ✅ LLM Review Formatting
         if (data.llm_review) {
@@ -219,6 +222,7 @@ ${timing}
   </script>
 </body>
 </html>
+
 
 
 
