@@ -76,7 +76,7 @@
   </style>
 </head>
 <body>
-    <h2>⚡ NextGenIT QA Agent (Prototype)</h2>
+    <h2>⚡ NextGenIT QA Agent </h2>
 
   <div class="section">
     <h3>🌐 Language</h3>
@@ -127,7 +127,7 @@
 
         const res = await fetch("https://276f613e8678.ngrok-free.app/qa", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json","X-API-KEY": "demo123" },
           body: JSON.stringify({ language: lang, code: code }),
           signal: controller.signal
         });
@@ -219,5 +219,6 @@ ${timing}
   </script>
 </body>
 </html>
+
 
 
