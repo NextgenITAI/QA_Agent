@@ -108,12 +108,11 @@
 
       const start = performance.now();
       try {
-        #const res = await fetch("http://127.0.0.1:8080/qa",
-		const res = await fetch("https://276f613e8678.ngrok-free.app/qa", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ language: lang, code: code })
-        });
+	  const res = await fetch("https://276f613e8678.ngrok-free.app/qa", {
+	    method: "POST",
+	    headers: { "Content-Type": "application/json" },
+	    body: JSON.stringify({ language: lang, code: code })
+	  });
 
         const data = await res.json();
         console.log("QA API Response:", data); // 🔍 Debugging line
@@ -205,3 +204,4 @@ ${timing}
   </script>
 </body>
 </html>
+
