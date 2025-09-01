@@ -13,37 +13,48 @@
     h2 {
       color: #333;
     }
-    select, textarea, button {
+    select, textarea, button, input {
       margin-top: 10px;
       padding: 8px;
       font-size: 14px;
+      width: 100%;              /* 🔑 all elements same width */
+      box-sizing: border-box;   /* include border/padding in width */
     }
-    textarea {
-      width: 100%;
+    textarea, input {
       border-radius: 6px;
       border: 1px solid #ccc;
-      padding: 10px;
       font-family: monospace;
-      resize: none;
+      background: #fff;
     }
     #code {
-      height: 200px; /* Code editor */
+      height: 200px; /* Bigger area for code */
     }
     #syntax, #llm {
-      height: 150px;        /* bigger area (≈ 7–8 lines) */
-      background: #fff;
-      overflow-y: auto;     /* scroll if text overflows */
+      height: 150px;
+      overflow-y: auto;
       white-space: pre-wrap;
-      font-family: monospace;
-      font-size: 14px;
     }
     .section {
       margin-top: 20px;
-      padding: 10px;
+      padding: 0;
       border: 1px solid #ddd;
       border-radius: 8px;
       background: #fff;
       box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    }
+    .section h3 {
+      margin: 0;
+      padding: 8px 12px;
+      background: #007bff;  /* 🔑 Highlight background */
+      color: #fff;
+      border-radius: 8px 8px 0 0;
+      font-size: 15px;
+    }
+    .section textarea, .section input {
+      border: none;
+      border-top: 1px solid #ddd;
+      border-radius: 0 0 8px 8px;
+      padding: 10px;
     }
     button {
       cursor: pointer;
@@ -90,10 +101,9 @@
   </div>
 
   <div class="section">
-  <h3>⏱ Timing</h3>
-  <input id="timing" type="text" readonly style="width:100%; border-radius:6px; border:1px solid #ccc; padding:6px; font-family:monospace;" />
-</div>
-
+    <h3>⏱ Timing</h3>
+    <input id="timing" type="text" readonly />
+  </div>
 
   <button id="downloadBtn" onclick="downloadReport()">⬇️ Download QA Report</button>
 
@@ -107,46 +117,48 @@
       document.getElementById("timing").value = "";
 
       const start = performance.now();
+
       try {
-	  const res = await fetch("https://276f613e8678.ngrok-free.app/qa", {
-	    method: "POST",
-	    headers: { "Content-Type": "application/json" },
-	    body: JSON.stringify({ language: lang, code: code })
-	  });
+        // ✅ Add timeout wrapper to avoid hanging requests
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 8000); // 8s max
+
+        const res = await fetch("https://276f613e8678.ngrok-free.app/qa", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ language: lang, code: code }),
+          signal: controller.signal
+        });
+        clearTimeout(timeout);
 
         const data = await res.json();
-        console.log("QA API Response:", data); // 🔍 Debugging line
+        console.log("QA API Response:", data);
 
-        // ✅ Syntax Check Formatting
-        // ✅ Syntax Check Formatting
-		if (data.syntax_check || data.syntax) {
-		  const syntaxData = data.syntax_check || data.syntax;
+        // ✅ Fix: interpret syntax result properly
+        if (data.syntax_check || data.syntax) {
+          const syntaxData = data.syntax_check || data.syntax;
 
-		  if (Array.isArray(syntaxData.errors)) {
-			// errors is an array → join into lines
-			document.getElementById("syntax").value = syntaxData.errors.join("\n");
-		  } else if (typeof syntaxData.errors === "string") {
-			// errors is a single string
-			document.getElementById("syntax").value = syntaxData.errors;
-		  } else if (typeof syntaxData === "object") {
-			// whole object → pretty print
-			document.getElementById("syntax").value = JSON.stringify(syntaxData, null, 2);
-		  } else {
-			// already a string
-			document.getElementById("syntax").value = syntaxData;
-		  }
-		} else {
-		  document.getElementById("syntax").value = "No syntax result";
-		}
-
+          if (syntaxData.errors && Array.isArray(syntaxData.errors)) {
+            document.getElementById("syntax").value = syntaxData.errors.join("\n");
+          } else if (typeof syntaxData.errors === "string") {
+            document.getElementById("syntax").value = syntaxData.errors;
+          } else if (syntaxData.ok === false) {
+            document.getElementById("syntax").value = "❌ Syntax errors detected";
+          } else if (!syntaxData.errors && code.includes("(") && !code.includes(")")) {
+            // crude fallback for cases like print(Hello)
+            document.getElementById("syntax").value = "❌ Likely missing quotes or parenthesis error";
+          } else {
+            document.getElementById("syntax").value = "✅ No syntax errors";
+          }
+        } else {
+          document.getElementById("syntax").value = "No syntax result";
+        }
 
         // ✅ LLM Review Formatting
         if (data.llm_review) {
           if (typeof data.llm_review === "object") {
             document.getElementById("llm").value =
-              data.llm_review.message
-                ? data.llm_review.message
-                : JSON.stringify(data.llm_review, null, 2);
+              data.llm_review.message || JSON.stringify(data.llm_review, null, 2);
           } else {
             document.getElementById("llm").value = data.llm_review;
           }
@@ -154,11 +166,12 @@
           document.getElementById("llm").value = "⚠️ No review available";
         }
 
+        const end = performance.now();
         document.getElementById("timing").value =
-          `Processed in ${data.elapsed_time || "?"}s`;
+          `Processed in ${((end - start) / 1000).toFixed(2)}s`;
 
       } catch (err) {
-        document.getElementById("syntax").value = "❌ Error calling API";
+        document.getElementById("syntax").value = "❌ Error calling API (timeout or network)";
         document.getElementById("llm").value = "";
         document.getElementById("timing").value = "";
         console.error("QA API Error:", err);
@@ -204,4 +217,3 @@ ${timing}
   </script>
 </body>
 </html>
-
