@@ -17,8 +17,8 @@
       margin-top: 10px;
       padding: 8px;
       font-size: 14px;
-      width: 100%;              /* 🔑 all elements same width */
-      box-sizing: border-box;   /* include border/padding in width */
+      width: 100%;
+      box-sizing: border-box;
     }
     textarea, input {
       border-radius: 6px;
@@ -27,7 +27,7 @@
       background: #fff;
     }
     #code {
-      height: 200px; /* Bigger area for code */
+      height: 200px;
     }
     #syntax, #llm {
       height: 150px;
@@ -45,7 +45,7 @@
     .section h3 {
       margin: 0;
       padding: 8px 12px;
-      background: #007bff;  /* 🔑 Highlight background */
+      background: #007bff;
       color: #fff;
       border-radius: 8px 8px 0 0;
       font-size: 15px;
@@ -63,20 +63,24 @@
       border: none;
       border-radius: 6px;
     }
-    button:hover {
+    button:disabled {
+      background: #cccccc;
+      cursor: not-allowed;
+    }
+    button:hover:not(:disabled) {
       background: #0056b3;
     }
     #downloadBtn {
       margin-top: 20px;
       background: #28a745;
     }
-    #downloadBtn:hover {
+    #downloadBtn:hover:not(:disabled) {
       background: #1e7e34;
     }
   </style>
 </head>
 <body>
-    <h2>⚡ NextGenIT QA Agent </h2>
+  <h2>⚡ NextGenIT QA Agent</h2>
 
   <div class="section">
     <h3>🌐 Language</h3>
@@ -84,13 +88,13 @@
       <option>Python</option>
       <option>JavaScript</option>
       <option>Java</option>
-      <option>.NET</option> <!-- ✅ Added -->
+      <option>.NET</option>
     </select>
   </div>
 
   <textarea id="code" placeholder="Paste your code here..."></textarea>
   <br>
-  <button onclick="runQA()">Run QA</button>
+  <button id="qaButton" onclick="runQA()">Run QA</button>
 
   <div class="section">
     <h3>📝 Syntax Check</h3>
@@ -110,7 +114,20 @@
   <button id="downloadBtn" onclick="downloadReport()">⬇️ Download QA Report</button>
 
   <script>
-    async function runQA() {
+    // Debounce function to prevent rapid calls
+    function debounce(func, wait) {
+      let timeout;
+      return function (...args) {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => func.apply(this, args), wait);
+      };
+    }
+
+    const runQA = debounce(async function () {
+      const qaButton = document.getElementById("qaButton");
+      qaButton.disabled = true; // Disable button during request
+      qaButton.textContent = "Processing...";
+
       const lang = document.getElementById("lang").value;
       const code = document.getElementById("code").value;
 
@@ -119,15 +136,15 @@
       document.getElementById("timing").value = "";
 
       const start = performance.now();
+      console.log("Sending QA request..."); // Debug log
 
       try {
-        // ✅ Add timeout wrapper to avoid hanging requests
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 8000); // 8s max
+        const timeout = setTimeout(() => controller.abort(), 8000);
 
         const res = await fetch("https://276f613e8678.ngrok-free.app/qa", {
           method: "POST",
-          headers: { "Content-Type": "application/json","X-API-KEY": "demo123" },
+          headers: { "Content-Type": "application/json", "X-API-KEY": "demo123" },
           body: JSON.stringify({ language: lang, code: code }),
           signal: controller.signal
         });
@@ -136,30 +153,22 @@
         const data = await res.json();
         console.log("QA API Response:", data);
 
-        // ✅ Fix: interpret syntax result properly
         if (data.syntax_check || data.syntax) {
           const syntaxData = data.syntax_check || data.syntax;
-        
           let syntaxMsg = "✅ No syntax errors";
-        
           if (syntaxData.errors) {
             syntaxMsg = syntaxData.errors;
           } else if (syntaxData.ok === false) {
             syntaxMsg = "❌ Syntax errors detected (no details)";
           }
-        
-          // Optional .NET hint
           if (lang === ".NET" && code.includes("print(")) {
             syntaxMsg = "❌ Looks like Python code; use Console.WriteLine(...) in C#";
           }
-        
           document.getElementById("syntax").value = syntaxMsg;
         } else {
           document.getElementById("syntax").value = "No syntax result";
         }
 
-
-        // ✅ LLM Review Formatting
         if (data.llm_review) {
           if (typeof data.llm_review === "object") {
             document.getElementById("llm").value =
@@ -174,55 +183,16 @@
         const end = performance.now();
         document.getElementById("timing").value =
           `Processed in ${((end - start) / 1000).toFixed(2)}s`;
-
       } catch (err) {
         document.getElementById("syntax").value = "❌ Error calling API (timeout or network)";
         document.getElementById("llm").value = "";
         document.getElementById("timing").value = "";
         console.error("QA API Error:", err);
+      } finally {
+        qaButton.disabled = false; // Re-enable button
+        qaButton.textContent = "Run QA";
       }
-    }
-
-    function downloadReport() {
-      const lang = document.getElementById("lang").value;
-      const code = document.getElementById("code").value;
-      const syntax = document.getElementById("syntax").value;
-      const llm = document.getElementById("llm").value;
-      const timing = document.getElementById("timing").value;
-
-      const report = `
-⚡ NextGenIT QA Report
-=====================
-
-Language: ${lang}
-
-👨‍💻 Submitted Code:
--------------------
-${code}
-
-📝 Syntax Check:
-----------------
-${syntax}
-
-🤖 LLM Review:
---------------
-${llm}
-
-⏱ Timing:
----------
-${timing}
-      `;
-
-      const blob = new Blob([report], { type: "text/plain" });
-      const link = document.createElement("a");
-      link.href = URL.createObjectURL(blob);
-      link.download = "QA_Report.txt";
-      link.click();
-    }
+    }, 1000); // 1-second debounce
   </script>
 </body>
 </html>
-
-
-
-
