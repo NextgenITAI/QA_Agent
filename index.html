@@ -128,43 +128,69 @@
   qaButton.disabled = true;
   qaButton.textContent = "Processing...";
 
-  const lang = document.getElementById("lang").value.toLowerCase();
-  const code = document.getElementById("code").value.trim();
-
-  if (!code) {
-    document.getElementById("syntax").value = "❌ Please enter code";
-    document.getElementById("llm").value = "";
-    document.getElementById("timing").value = "";
-    qaButton.disabled = false;
-    qaButton.textContent = "Run QA";
-    return;
-  }
-
-  const requestId = crypto.randomUUID(); // Generate unique ID
+  const lang = document.getElementById("lang").value;
+  const code = document.getElementById("code").value;
 
   document.getElementById("syntax").value = "Checking...";
   document.getElementById("llm").value = "Reviewing...";
   document.getElementById("timing").value = "";
 
   const start = performance.now();
-  console.log(`Sending QA request | request_id=${requestId}`);
 
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 8000);
+
     const res = await fetch("https://276f613e8678.ngrok-free.app/qa", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-API-KEY": "demo123" },
-      body: JSON.stringify({ language: lang, code: code, request_id: requestId }) // Add request_id to payload
+      headers: { "Content-Type": "application/json","X-API-KEY": "demo123" },
+      body: JSON.stringify({ language: lang, code: code }),
+      signal: controller.signal
     });
     clearTimeout(timeout);
 
-    const data = await res.json();
-    console.log(`QA API Response | request_id=${requestId}:`, data);
+    if (!res.ok) {
+      throw new Error(`HTTP error: ${res.status} ${await res.text()}`);
+    }
 
-    // ... (rest of display logic unchanged)
+    const data = await res.json();
+    console.log("QA API Response:", data);
+
+    if (data.syntax_check || data.syntax) {
+      const syntaxData = data.syntax_check || data.syntax;
+      let syntaxMsg = "✅ No syntax errors";
+      if (syntaxData.errors) {
+        syntaxMsg = syntaxData.errors;
+      } else if (syntaxData.ok === false) {
+        syntaxMsg = "❌ Syntax errors detected (no details)";
+      }
+      if (lang === ".NET" && code.includes("print(")) {
+        syntaxMsg = "❌ Looks like Python code; use Console.WriteLine(...) in C#";
+      }
+      document.getElementById("syntax").value = syntaxMsg;
+    } else {
+      document.getElementById("syntax").value = "No syntax result";
+    }
+
+    if (data.llm_review) {
+      if (typeof data.llm_review === "object") {
+        document.getElementById("llm").value =
+          data.llm_review.message || JSON.stringify(data.llm_review, null, 2);
+      } else {
+        document.getElementById("llm").value = data.llm_review;
+      }
+    } else {
+      document.getElementById("llm").value = "⚠️ No review available";
+    }
+
+    const end = performance.now();
+    document.getElementById("timing").value =
+      `Processed in ${((end - start) / 1000).toFixed(2)}s`;
   } catch (err) {
-    // ... (rest unchanged)
+    document.getElementById("syntax").value = "❌ Error calling API: " + err.message;
+    document.getElementById("llm").value = "";
+    document.getElementById("timing").value = "";
+    console.error("QA API Error:", err);
   } finally {
     qaButton.disabled = false;
     qaButton.textContent = "Run QA";
@@ -173,4 +199,5 @@
   </script>
 </body>
 </html>
+
 
