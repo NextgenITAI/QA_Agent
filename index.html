@@ -156,8 +156,8 @@
     const data = await res.json();
     console.log("QA API Response:", data);
 
-    if (data.syntax_check || data.syntax) {
-      const syntaxData = data.syntax_check || data.syntax;
+    if (data.syntax_check) {
+      const syntaxData = data.syntax_check;
       let syntaxMsg = "✅ No syntax errors";
       if (syntaxData.errors) {
         syntaxMsg = syntaxData.errors;
@@ -199,5 +199,6 @@
   </script>
 </body>
 </html>
+
 
 
